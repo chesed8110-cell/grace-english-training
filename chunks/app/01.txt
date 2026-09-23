@@ -1,0 +1,99 @@
+Ideally, I'd like to speak naturally without translating.",'Goal'],
+[93,"If possible, I'd like to ~",'가능하다면 ~하고 싶어',"If possible, I'd like to practice with real work situations.",'Goal'],
+[94,'Even if ~, ~','비록 ~해도','Even if I make mistakes, I want to keep speaking.','Condition'],
+[95,'What do you mean by ~?','~가 무슨 뜻이야?','What do you mean by “natural English”?','Conversation'],
+[96,'Do you mean ~?','~라는 뜻이야?','Do you mean I should repeat the same structure tomorrow?','Conversation'],
+[97,"I'm not sure I understand",'잘 이해했는지 모르겠어',"I'm not sure I understand. Could you give me an example?",'Conversation'],
+[98,'That makes sense','이해돼 / 말이 되네','That makes sense. I can see why repetition matters.','Conversation'],
+[99,'I see what you mean','무슨 말인지 알겠어','I see what you mean. The issue is speed, not knowledge.','Conversation'],
+[100,'Now that you mention it, ~','말하고 보니','Now that you mention it, I do hesitate more when I try to sound perfect.','Conversation']
+].map(([id,pattern,meaning,example,category])=>({id,pattern,meaning,example,category}));
+
+const WEEK_SCRIPTS = [
+{topic:'Why training works',text:"I used to think improving my English meant learning more grammar and vocabulary. But I've realized that the bigger problem is using what I already know quickly. The reason I want a structured routine is that repetition helps me retrieve English without translating every sentence in my head."},
+{topic:'Ballet and learning',text:"For me, ballet is a useful way to think about language learning. The thing is, understanding a movement is very different from being able to perform it. That's why I want to train English in the same way: understand the structure, repeat it, use it, get feedback, and try again."},
+{topic:'Consistency',text:"What matters is not whether every study session is perfect. It depends on whether I keep showing up. I've noticed that short sessions work better for me when they have a clear goal. The more often I retrieve the same useful expressions, the more natural they start to feel."},
+{topic:'My English bottleneck',text:"I find it difficult to explain complicated ideas quickly in English. It's not that I don't know enough grammar. It's just that I still tend to search for words and translate in my head. What I need to work on is turning familiar structures into automatic speech."},
+{topic:'Choosing a method',text:"I'm torn between learning lots of new expressions and practicing a smaller set more deeply. If I had to choose, I'd focus on the second option. It makes more sense to me because I want expressions that actually appear in conversation, not expressions I only recognize on a page."},
+{topic:'Work English',text:"My goal is to explain my work clearly to people who don't know the industry. What makes it difficult is that I know the topic in detail, so I sometimes make the explanation too complicated. I'm working on starting with the main point and adding details only when they are needed."},
+{topic:'Learning from feedback',text:"I used to think corrections were useful as long as I understood them. Now I think the important part is what happens after the correction. If I don't say the sentence again, I'm more likely to repeat the same mistake. That's why I want every correction to end with a retry."},
+{topic:'Preferences',text:"I prefer training that gives me a clear sense of progress. I'm not really into studying randomly because it's hard to know whether I'm improving. What I like about this system is that I can see which structures are becoming automatic and which ones still need more practice."},
+{topic:'Speaking imperfectly',text:"I'm starting to think that trying to sound perfect can actually make me less fluent. I still tend to stop and edit myself while I'm speaking. Even if I make mistakes, I want to finish the thought first. Accuracy matters, but communication has to keep moving."},
+{topic:'Real-life English',text:"Ideally, I'd like to use English for the things I already care about: work, travel, ballet, music, and conversations about ideas. It has a lot to do with motivation. I'm more likely to remember a phrase when it is connected to something I genuinely want to say."},
+{topic:'Progress',text:"Compared with a few months ago, I want to notice changes in how I speak, not just how much I know. I'm getting better at using familiar chunks directly, but I still have trouble connecting longer thoughts. Over time, I want my English to become simpler, faster, and more precise."},
+{topic:'After twelve weeks',text:"If I practice every weekday, I'll probably make fewer pauses and use a wider range of structures without thinking. I wouldn't say twelve weeks can make anyone fluent, but it can change the way I train. The point is to build a system I can continue after the program ends."}
+];
+
+const SPEAKING_PROMPTS = [
+'Why do you want to train English differently this time?',
+'Explain one thing that ballet or music has taught you about learning.',
+'What makes a study routine sustainable for you?',
+'What is the biggest gap between your English knowledge and your speaking?',
+'Which is more useful for you right now: learning new English or automating familiar English? Why?',
+'Explain your work to someone who has never heard of your industry.',
+'What kind of feedback actually changes your performance?',
+'Compare two ways of studying English and say which works better for you.',
+'Do you think perfectionism helps or hurts language learning?',
+'What topics do you most want to be able to discuss naturally in English?',
+'What changes would prove to you that your English is improving?',
+'Imagine it is the end of this 12-week program. What do you want to be able to do?'
+];
+
+const DRILLS = [
+[16,'내가 영어를 훈련식으로 공부하려는 이유는 말하기를 자동화하고 싶기 때문이다.',"The reason I want to train English systematically is that I want to automate my speaking."],
+[18,'그래서 나는 평일마다 짧게라도 연습하고 싶다.',"That's why I want to practice at least a little every weekday."],
+[27,'이 방법이 효과가 있는지는 내가 얼마나 꾸준히 반복하느냐에 달려 있다.',"It depends on whether I repeat it consistently."],
+[29,'예전에는 문법 공부를 말하기보다 더 많이 했다.',"I used to study grammar more than speaking."],
+[38,'나는 문법을 아는 것만으로는 충분하지 않다는 걸 깨달았다.',"I realized that knowing grammar isn't enough."],
+[39,'익숙한 구조를 재사용할 때 더 잘 말한다는 걸 느꼈다.',"I've noticed that I speak better when I reuse familiar structures."],
+[41,'처음에는 단어가 더 필요하다고 생각했는데 실제로는 인출 연습이 더 필요했다.',"At first, I thought I needed more vocabulary, but I actually needed more retrieval practice."],
+[44,'연습하면 할수록 문장 구조가 더 자연스럽게 느껴진다.',"The more I practice, the more natural the structures feel."],
+[46,'나는 새로운 표현 50개를 외우기보다 유용한 표현 10개를 연습하겠다.',"I'd rather practice ten useful expressions than memorize fifty new ones."],
+[48,'짧고 자주 하는 훈련이 나한테 더 잘 맞는다.',"Short, frequent practice works better for me."],
+[51,'이 시스템의 좋은 점은 진행 상황이 보인다는 것이다.',"What I like about this system is that I can see my progress."],
+[57,'문법 문제라기보다 자동화 문제다.',"It's not so much a grammar problem as an automaticity problem."],
+[60,'나는 수업을 더 들을지 혼자 연습할지 고민 중이다.',"I'm torn between taking more classes and practicing on my own."],
+[61,'문법을 싫어하는 게 아니라, 그냥 문법을 주된 공부로 하고 싶지 않은 것이다.',"It's not that I dislike grammar. It's just that I don't want grammar to be my main focus."],
+[74,'나는 복잡한 생각을 영어로 빨리 설명하기 어렵다.',"I find it difficult to explain complex ideas quickly in English."],
+[76,'나는 실시간 대화에서 단어를 꺼내는 게 어렵다.',"I struggle with word retrieval in real-time conversations."],
+[78,'나는 모든 문장을 고치려고 멈추지 않고 계속 말하려고 한다.',"I'm trying to keep speaking without stopping to correct every sentence."],
+[86,'나는 아직 문법을 너무 많이 생각하는 경향이 있다.',"I still tend to overthink grammar."],
+[89,'꼭 하나를 골라야 한다면 나는 말하기부터 집중하겠다.',"If I had to choose, I'd focus on speaking first."],
+[92,'이상적으로는 번역하지 않고 자연스럽게 말하고 싶다.',"Ideally, I'd like to speak naturally without translating."],
+[94,'실수하더라도 계속 말하고 싶다.',"Even if I make mistakes, I want to keep speaking."],
+[100,'말하고 보니, 완벽하게 말하려 할 때 더 망설이는 것 같다.',"Now that you mention it, I do hesitate more when I try to sound perfect."]
+].map(([structureId,ko,en])=>({structureId,ko,en}));
+
+const CHECKS = [
+['review','Review','5 min','어제/지난주 구조를 힌트 없이 꺼내기'],
+['structure','Core Structure','5 min','오늘의 핵심 구조 2–3개'],
+['drill','Sentence Drill','8 min','한국어 → 영어 즉시 생성'],
+['shadow','Shadowing','10 min','듣기 → 따라 말하기'],
+['reconstruct','Reconstruction','5 min','스크립트 없이 재현'],
+['speaking','Speaking','5 min','오늘 주제로 2분 말하기'],
+['correction','Correction','5 min','AI 코치 교정 확인'],
+['retry','Retry','2 min','교정 후 다시 말하기']
+];
+
+const KEY='graceEnglishTraining.v1';
+const AUTH_KEY='graceEnglishAuth.v1';
+const SUPABASE_URL='https://jqywsqsvuvmogtuumnjp.supabase.co';
+const SUPABASE_KEY='sb_publishable_FcdSzssVEkx7nNyMPKWE_A_igGu_W0p';
+const defaultState=()=>({
+  startDate:'2026-09-23',
+  checks:{}, mastery:{}, errors:[], speaking:[], reconstructions:[], streak:0,
+  settings:{ttsRate:.88,minimumMode:false},
+  beforeAfter:{day1:'',day60:''},
+  syncMeta:{localUpdatedAt:new Date().toISOString(),lastCloudAt:null},
+  activeTab:'today', activeCategory:'All'
+});
+let state=loadState();
+let authSession=loadAuthSession();
+let cloudStatus={kind:authSession?'idle':'local',text:authSession?'연결 확인 중':'이 기기에 저장'};
+let cloudSaveTimer=null;
+let ui={drillIndex:0,drillAnswer:'',drillFeedback:null,showScript:false,speakingText:'',reconText:'',coach:null,coachLoading:false,retryText:'',recording:false};
+
+function loadState(){try{const d=JSON.parse(localStorage.getItem(KEY));const base=defaultState();return {...base,...d,settings:{...base.settings,...(d.settings||{})},syncMeta:{...base.syncMeta,...(d.syncMeta||{})}}}catch{return defaultState()}}
+function loadAuthSession(){try{return JSON.parse(localStorage.getItem(AUTH_KEY))||null}catch{return null}}
+function persistAuthSession(session){authSession=session;session?localStorage.setItem(AUTH_KEY,JSON.stringify(session)):localStorage.removeItem(AUTH_KEY)}
+function decodeJwt(token=''){try{const payload=token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');return JSON.parse(decodeURIComponent(atob(payload).split('').map
