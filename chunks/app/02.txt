@@ -1,0 +1,68 @@
+(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')))}catch{return {}}}
+function sessionFromAuth(data){if(!data?.access_token)return null;const claims=decodeJwt(data.access_token);return {access_token:data.access_token,refresh_token:data.refresh_token,expires_at:Date.now()+Number(data.expires_in||3600)*1000,user:data.user||{id:claims.sub,email:claims.email}}}
+function hasMeaningfulProgress(s=state){return Object.keys(s.checks||{}).length>0||Object.keys(s.mastery||{}).length>0||(s.errors||[]).length>0||(s.speaking||[]).length>0||(s.reconstructions||[]).length>0||Boolean(s.beforeAfter?.day1||s.beforeAfter?.day60)}
+function writeLocal(){localStorage.setItem(KEY,JSON.stringify(state))}
+function saveState({touch=true,cloud=true}={}){if(touch){state.syncMeta={...(state.syncMeta||{}),localUpdatedAt:new Date().toISOString()}}writeLocal();if(cloud&&authSession)scheduleCloudSave();}
+function scheduleCloudSave(){clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(()=>pushCloudState().catch(()=>{}),900)}
+function setCloudStatus(kind,text){cloudStatus={kind,text};const el=document.getElementById('cloudStatus');if(el){el.className=`cloud-pill ${kind}`;el.textContent=`☁ ${text}`}}
+async function authFetch(path,{method='GET',body,token}={}){const headers={'apikey':SUPABASE_KEY,'Content-Type':'application/json'};if(token)headers.Authorization=`Bearer ${token}`;const r=await fetch(`${SUPABASE_URL}${path}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});const text=await r.text();let data={};try{data=text?JSON.parse(text):{}}catch{data={message:text}}if(!r.ok)throw new Error(data?.msg||data?.message||data?.error_description||data?.error||`Request failed (${r.status})`);return data}
+async function ensureSession(){if(!authSession)return null;if((authSession.expires_at||0)>Date.now()+60000)return authSession;if(!authSession.refresh_token){persistAuthSession(null);return null}try{const data=await authFetch('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:authSession.refresh_token}});const fresh=sessionFromAuth(data);persistAuthSession(fresh);return fresh}catch(e){persistAuthSession(null);setCloudStatus('error','로그인 필요');return null}}
+async function fetchCloudRow(){const session=await ensureSession();if(!session?.user?.id)return null;const rows=await authFetch(`/rest/v1/training_state?user_id=eq.${encodeURIComponent(session.user.id)}&select=state,updated_at&limit=1`,{token:session.access_token});return Array.isArray(rows)?rows[0]||null:null}
+async function pushCloudState(){const session=await ensureSession();if(!session?.user?.id)return;setCloudStatus('syncing','동기화 중');const now=new Date().toISOString();const r=await fetch(`${SUPABASE_URL}/rest/v1/training_state?on_conflict=user_id`,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:session.user.id,state,updated_at:now})});if(!r.ok){const detail=await r.text();setCloudStatus('error','동기화 오류');throw new Error(detail||`Sync failed (${r.status})`)}state.syncMeta={...(state.syncMeta||{}),lastCloudAt:now};writeLocal();setCloudStatus('synced','동기화됨')}
+function hydrateRemote(remote){const base=defaultState(),rs=remote?.state||{};state={...base,...rs,settings:{...base.settings,...(rs.settings||{})},syncMeta:{...base.syncMeta,...(rs.syncMeta||{}),lastCloudAt:remote.updated_at||new Date().toISOString()}};writeLocal()}
+async function syncCloudInitial({notify=false}={}){if(!authSession)return;setCloudStatus('syncing','동기화 중');const remote=await fetchCloudRow();if(!remote){await pushCloudState();if(notify)toast('이 기기의 기록을 클라우드에 저장했어요.');return}const localTime=Date.parse(state.syncMeta?.localUpdatedAt||0)||0,remoteTime=Date.parse(remote.updated_at||0)||0;if(!hasMeaningfulProgress(state)||remoteTime>localTime){hydrateRemote(remote);setCloudStatus('synced','클라우드 불러옴');if(notify)toast('클라우드의 최신 기록을 불러왔어요.')}else{await pushCloudState();if(notify)toast('이 기기의 최신 기록을 클라우드에 저장했어요.')}}
+async function signInCloud(email,password){if(!email||!password)throw new Error('이메일과 비밀번호를 입력해 주세요.');const data=await authFetch('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});persistAuthSession(sessionFromAuth(data));await syncCloudInitial();render();toast('로그인했어요. 이제 다른 기기에서도 같은 기록을 사용할 수 있어요.')}
+async function signUpCloud(email,password){if(!email||!password)throw new Error('이메일과 비밀번호를 입력해 주세요.');if(password.length<6)throw new Error('비밀번호는 6자 이상으로 설정해 주세요.');const data=await authFetch('/auth/v1/signup',{method:'POST',body:{email,password}});if(data?.access_token){persistAuthSession(sessionFromAuth(data));await syncCloudInitial();render();toast('계정을 만들고 동기화를 시작했어요.')}else{toast('확인 이메일을 보냈어요. 이메일 인증 후 여기서 로그인해 주세요.')}}
+async function signOutCloud(){try{const session=await ensureSession();if(session?.access_token)await authFetch('/auth/v1/logout',{method:'POST',token:session.access_token})}catch{}persistAuthSession(null);setCloudStatus('local','이 기기에 저장');render();toast('로그아웃했어요. 이 기기의 로컬 기록은 유지됩니다.')}
+function handleAuthRedirect(){const h=new URLSearchParams(location.hash.replace(/^#/,''));if(!h.get('access_token'))return false;const fresh=sessionFromAuth({access_token:h.get('access_token'),refresh_token:h.get('refresh_token'),expires_in:h.get('expires_in')});persistAuthSession(fresh);history.replaceState(null,'',location.pathname+location.search);return true}
+function todayISO(){return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Seoul'});}
+function dateObj(s){return new Date(s+'T12:00:00+09:00')}
+function weekdayProgramDay(date=todayISO()){
+  let d=dateObj(state.startDate), target=dateObj(date), count=0;
+  if(target<d)return 1;
+  while(d<=target){const w=d.getDay();if(w>=1&&w<=5)count++;d.setDate(d.getDate()+1)}
+  return Math.min(60,Math.max(1,count));
+}
+function weekNo(day=weekdayProgramDay()){return Math.min(12,Math.ceil(day/5))}
+function dayInWeek(day=weekdayProgramDay()){return ((day-1)%5)+1}
+function phaseForWeek(w){return w<=4?'MONTH 1 · AUTOMATE':w<=8?'MONTH 2 · EXPAND':'MONTH 3 · SPEAK'}
+function isWeekend(){const w=dateObj(todayISO()).getDay();return w===0||w===6}
+function currentDayKey(){return `d${weekdayProgramDay()}`}
+function checksForDay(day=weekdayProgramDay()){return state.checks[`d${day}`]||{}}
+function setCheck(id,val=true){const k=currentDayKey();state.checks[k]={...(state.checks[k]||{}),[id]:val};saveState();render();}
+function completeCount(day=weekdayProgramDay()){const c=checksForDay(day);return CHECKS.filter(x=>c[x[0]]).length}
+function dayDone(day){return completeCount(day)>=6}
+function getWeekDayNumbers(w=weekNo()){return Array.from({length:5},(_,i)=>(w-1)*5+i+1).filter(x=>x<=60)}
+function getWeekProgress(w=weekNo()){return getWeekDayNumbers(w).filter(dayDone).length}
+function programCompletion(){let d=0;for(let i=1;i<=60;i++)if(dayDone(i))d++;return d}
+function mastery(id){return Number(state.mastery[id]||0)}
+function setMastery(id,lvl){state.mastery[id]=Math.max(0,Math.min(5,lvl));saveState();render();}
+function bumpMastery(id,amount=1){setMastery(id,mastery(id)+amount)}
+function focusStructures(day=weekdayProgramDay()){
+  const w=weekNo(day), di=dayInWeek(day)-1;
+  let poolStart,poolEnd;
+  if(w<=4){poolStart=1;poolEnd=30}else if(w<=8){poolStart=31;poolEnd=70}else{poolStart=71;poolEnd=100}
+  const pool=STRUCTURES.filter(s=>s.id>=poolStart&&s.id<=poolEnd);
+  const offset=((w-1)%4*5+di)*2;
+  const a=pool[offset%pool.length], b=pool[(offset+1)%pool.length];
+  const weakest=[...STRUCTURES.slice(0,poolStart-1)].sort((x,y)=>mastery(x.id)-mastery(y.id)||x.id-y.id)[0] || pool[(offset+2)%pool.length];
+  return [a,b,weakest].filter((s,i,arr)=>s&&arr.findIndex(x=>x.id===s.id)===i);
+}
+function dueStructures(){return [...STRUCTURES].sort((a,b)=>mastery(a.id)-mastery(b.id)||a.id-b.id).slice(0,5)}
+function getDrills(){const focus=focusStructures().map(s=>s.id);let matched=DRILLS.filter(d=>focus.includes(d.structureId));let rest=DRILLS.filter(d=>!focus.includes(d.structureId));return [...matched,...rest].slice(0,5)}
+function normalize(s){return s.toLowerCase().replace(/[.,!?']/g,'').replace(/\s+/g,' ').trim()}
+function similarity(a,b){const A=new Set(normalize(a).split(' ')),B=new Set(normalize(b).split(' '));let inter=0;A.forEach(x=>B.has(x)&&inter++);return inter/Math.max(1,new Set([...A,...B]).size)}
+function structureTokens(pattern){return pattern.toLowerCase().replace(/[~.?,]/g,'').replace(/\ba\b|\bb\b/g,'').split(/\s+/).filter(x=>x.length>2&&!["that","than","what","with","into","from","have","been","just"].includes(x));}
+function usesStructure(text,s){const low=text.toLowerCase();const tokens=structureTokens(s.pattern);return tokens.filter(t=>low.includes(t.replace('~',''))).length>=Math.max(1,Math.min(2,tokens.length));}
+function escapeHTML(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
+function saveAndRender(){saveState();render()}
+
+function appHeader(){const day=weekdayProgramDay(),w=weekNo(day),done=programCompletion(),streak=calcStreak();return `
+<div class="topbar">
+ <section class="hero"><div class="eyebrow">12-WEEK B1 → B2 AUTOMATION LAB</div><h1>Grace English Training</h1><div class="subtitle">배운 영어를 실제로 꺼내 쓰는 능력으로 바꾸는 60일 훈련. 새로운 것을 많이 배우기보다 <b>Recall → Produce → Feedback → Retry</b>를 반복합니다.</div></section>
+ <section class="status-card"><div class="status-grid">
+  <div class="stat"><strong>${day}</strong><span>DAY / 60</span></div><div class="stat"><strong>${w}</strong><span>WEEK / 12</span></div><div class="stat"><strong>${streak}</strong><span>STREAK</span></div><div class="stat"><strong>${done}</strong><span>COMPLETE</span></div>
+ </div></section>
+</div>
+<nav class="nav"><div class="nav-tabs">${[['today',
