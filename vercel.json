@@ -1,7 +1,4 @@
 {
-  "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ],
   "functions": {
     "api/coach.js": { "maxDuration": 30 }
   }
